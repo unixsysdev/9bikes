@@ -12,8 +12,9 @@ ENV/
 # Serena framework (foundation code)
 serena/
 
-# Root README (keep project-specific READMEs in subdirs)
-/README.md
+# Root README removed from exclusions - now included in repo
+# /README.md
+
 
 # Python
 __pycache__/
