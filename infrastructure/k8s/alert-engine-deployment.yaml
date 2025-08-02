@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-engine
+  namespace: monitors
+  labels:
+    app: alert-engine
+    component: alerts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-engine
+  template:
+    metadata:
+      labels:
+        app: alert-engine
+        component: alerts
+    spec:
+      containers:
+      - name: alert-engine
+        image: monitors/alert-engine:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: redis-url
+        - name: INFLUXDB_URL
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: influxdb-url
+        - name: INFLUXDB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: influxdb-token
+        - name: INFLUXDB_ORG
+          value: "monitors"
+        - name: INFLUXDB_DATABASE
+          value: "monitors"
+        - name: SENDGRID_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: sendgrid-api-key
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: slack-webhook-url
+              optional: true
+        - name: DISCORD_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: discord-webhook-url
+              optional: true
+        - name: TEAMS_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: monitors-secrets
+              key: teams-webhook-url
+              optional: true
+        - name: ALERT_EVALUATION_INTERVAL
+          value: "30"  # seconds
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 8080
+          name: health
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-engine-service
+  namespace: monitors
+  labels:
+    app: alert-engine
+spec:
+  selector:
+    app: alert-engine
+  ports:
+  - name: health
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitors-secrets
+  namespace: monitors
+type: Opaque
+stringData:
+  database-url: "mysql+pymysql://monitors:your_database_password@pstack-mysql:3306/monitors_db"
+  redis-url: "redis://:your_redis_password@pstack-redis:6379/1"
+  influxdb-url: "http://pstack-influxdb:8086"
+  influxdb-token: "monitors_token"
+  sendgrid-api-key: "your_sendgrid_api_key_here"
+  # Optional webhook URLs - add these if you want notifications
+  slack-webhook-url: ""
+  discord-webhook-url: ""
+  teams-webhook-url: ""
